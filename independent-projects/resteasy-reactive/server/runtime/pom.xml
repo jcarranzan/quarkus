@@ -10,7 +10,7 @@
         <version>999-SNAPSHOT</version>
     </parent>
 
-    <artifactId>resteasy-reactive</artifactId>
+    <artifactId>resteasy-reactive-server-runtime</artifactId>
     <name>RESTEasy Reactive - Runtime</name>
 
     <dependencies>

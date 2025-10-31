@@ -10,11 +10,15 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.StreamingOutput;
 
+import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.server.core.ResteasyReactiveRequestContext;
 import org.jboss.resteasy.reactive.server.spi.ResteasyReactiveResourceInfo;
 import org.jboss.resteasy.reactive.server.spi.ServerMessageBodyWriter;
 import org.jboss.resteasy.reactive.server.spi.ServerRequestContext;
 
 public class StreamingOutputMessageBodyWriter implements ServerMessageBodyWriter<StreamingOutput> {
+    private static final Logger log = Logger.getLogger(StreamingOutputMessageBodyWriter.class);
+
     @Override
     public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
         return doIsWriteable(type);
@@ -43,9 +47,35 @@ public class StreamingOutputMessageBodyWriter implements ServerMessageBodyWriter
         streamingOutput.write(entityStream);
     }
 
+
     @Override
     public void writeResponse(StreamingOutput o, Type genericType, ServerRequestContext context)
-            throws WebApplicationException, IOException {
-        o.write(context.getOrCreateOutputStream());
+            throws WebApplicationException {
+        try {
+            o.write(context.getOrCreateOutputStream());
+        } catch (Throwable t) {
+            log.error("Exception during StreamingOutput.write()", t);
+
+            if (context.serverResponse().headWritten()) {
+                context.serverResponse().reset();
+
+                if (context instanceof ResteasyReactiveRequestContext) {
+                    ResteasyReactiveRequestContext rrContext = (ResteasyReactiveRequestContext) context;
+                    rrContext.serverRequest().closeConnection();
+                    rrContext.close();
+                }
+
+            } else {
+                if (t instanceof WebApplicationException) {
+                    throw (WebApplicationException) t;
+                } else if (t instanceof IOException) {
+                    throw new WebApplicationException(t);
+                } else if (t instanceof RuntimeException) {
+                    throw new WebApplicationException(t);
+                } else {
+                    throw new WebApplicationException(t);
+                }
+            }
+        }
     }
 }
